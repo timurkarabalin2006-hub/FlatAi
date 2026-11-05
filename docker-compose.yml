@@ -1,0 +1,33 @@
+services:
+  flatai-ai-service:
+    build: .
+    container_name: flatai_ai_core
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://flatai:flatai_pass@db:5432/flatai_db
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    container_name: flatai_postgres
+    environment:
+      - POSTGRES_USER=flatai
+      - POSTGRES_PASSWORD=flatai_pass
+      - POSTGRES_DB=flatai_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flatai -d flatai_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  pgdata:

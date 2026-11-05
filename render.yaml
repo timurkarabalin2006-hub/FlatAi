@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: flatai
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    plan: free
+    healthCheckPath: /api/model
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: flatai-db
+          property: connectionString
+
+databases:
+  - name: flatai-db
+    plan: free
+    databaseName: flatai_db
+    user: flatai

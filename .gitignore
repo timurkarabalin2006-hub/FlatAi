@@ -1,0 +1,8 @@
+# тяжёлое и служебное — НЕ загружать в GitHub (лимит файла 100 МБ)
+model_src/
+ml/
+__pycache__/
+*.pyc
+build.log
+main_before_ai.py
+flatai-style.html
