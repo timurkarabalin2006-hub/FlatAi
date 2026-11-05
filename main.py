@@ -2,12 +2,16 @@ import os
 import re
 import json
 import time
+import base64
+import hashlib
+import hmac
+import secrets
 from contextlib import asynccontextmanager
 from typing import Optional
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Header, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -137,6 +141,16 @@ def init_db(retries: int = 15, delay: float = 2.0):
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        # журнал привязывается к пользователю (старые записи остаются без владельца)
+        cur.execute("ALTER TABLE analyzed_listings ADD COLUMN IF NOT EXISTS user_id INT;")
         conn.commit()
         cur.close()
         conn.close()
@@ -423,6 +437,143 @@ def expert_system_evaluate(data: ListingInput, nlp_features: dict):
     }
 
 
+
+# =====================================================================
+# Аккаунты: регистрация, вход, токены.
+# Пароли хранятся только в виде PBKDF2-хеша с солью, токен подписан HMAC.
+# =====================================================================
+SECRET_KEY = os.getenv("SECRET_KEY", "flatai-dev-secret-change-me")
+TOKEN_TTL_SEC = 7 * 24 * 3600
+PBKDF2_ITER = 200_000
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_FAILS = {}  # email -> [время неудачных попыток], защита от подбора пароля
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PBKDF2_ITER)
+    return f"pbkdf2${PBKDF2_ITER}${salt.hex()}${dk.hex()}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    try:
+        _, it, salt_hex, hash_hex = stored.split("$")
+        dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt_hex), int(it))
+        return hmac.compare_digest(dk.hex(), hash_hex)
+    except Exception:
+        return False
+
+
+def _b64(b: bytes) -> str:
+    return base64.urlsafe_b64encode(b).decode().rstrip("=")
+
+
+def make_token(user_id: int) -> str:
+    body = _b64(json.dumps({"uid": user_id, "exp": int(time.time()) + TOKEN_TTL_SEC}).encode())
+    sig = _b64(hmac.new(SECRET_KEY.encode(), body.encode(), hashlib.sha256).digest())
+    return f"{body}.{sig}"
+
+
+def parse_token(token: str):
+    """Возвращает id пользователя или None, если токен неверный или просрочен."""
+    try:
+        body, sig = token.split(".")
+        good = _b64(hmac.new(SECRET_KEY.encode(), body.encode(), hashlib.sha256).digest())
+        if not hmac.compare_digest(sig, good):
+            return None
+        data = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
+        if data["exp"] < time.time():
+            return None
+        return int(data["uid"])
+    except Exception:
+        return None
+
+
+def current_user_id(authorization: Optional[str]):
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    return parse_token(authorization[7:].strip())
+
+
+class AuthInput(BaseModel):
+    email: str = Field(..., min_length=3, max_length=254)
+    password: str = Field(..., min_length=6, max_length=128)
+
+
+def _check_rate(email: str):
+    now = time.time()
+    recent = [t for t in _FAILS.get(email, []) if now - t < 300]
+    _FAILS[email] = recent
+    if len(recent) >= 8:
+        raise HTTPException(status_code=429, detail="too_many_attempts")
+
+
+@app.post("/api/auth/register")
+def auth_register(body: AuthInput):
+    email = body.email.strip().lower()
+    if not EMAIL_RE.match(email):
+        raise HTTPException(status_code=422, detail="bad_email")
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM users WHERE email = %s", (email,))
+        if cur.fetchone():
+            cur.close(); conn.close()
+            raise HTTPException(status_code=409, detail="email_taken")
+        cur.execute("INSERT INTO users (email, password_hash) VALUES (%s, %s) RETURNING id",
+                    (email, hash_password(body.password)))
+        uid = cur.fetchone()[0]
+        conn.commit()
+        cur.close(); conn.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("DB notice:", e)
+        raise HTTPException(status_code=503, detail="db_unavailable")
+    return {"token": make_token(uid), "email": email}
+
+
+@app.post("/api/auth/login")
+def auth_login(body: AuthInput):
+    email = body.email.strip().lower()
+    _check_rate(email)
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        cur.execute("SELECT id, password_hash FROM users WHERE email = %s", (email,))
+        row = cur.fetchone()
+        cur.close(); conn.close()
+    except Exception as e:
+        print("DB notice:", e)
+        raise HTTPException(status_code=503, detail="db_unavailable")
+    # для несуществующего email тоже считаем хеш — ответ не выдаёт, есть ли такой аккаунт
+    ok = verify_password(body.password, row[1] if row else hash_password("dummy-password"))
+    if not row or not ok:
+        _FAILS.setdefault(email, []).append(time.time())
+        raise HTTPException(status_code=401, detail="bad_credentials")
+    _FAILS.pop(email, None)
+    return {"token": make_token(row[0]), "email": email}
+
+
+@app.get("/api/auth/me")
+def auth_me(authorization: Optional[str] = Header(None)):
+    uid = current_user_id(authorization)
+    if uid is None:
+        raise HTTPException(status_code=401, detail="not_authenticated")
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        cur.execute("SELECT email FROM users WHERE id = %s", (uid,))
+        row = cur.fetchone()
+        cur.close(); conn.close()
+    except Exception as e:
+        print("DB notice:", e)
+        raise HTTPException(status_code=503, detail="db_unavailable")
+    if not row:
+        raise HTTPException(status_code=401, detail="not_authenticated")
+    return {"email": row[0]}
+
+
 @app.get("/api/model")
 def model_info():
     """Какая модель разбирает текст и её точность на отложенной выборке."""
@@ -435,6 +586,7 @@ def model_info():
 def analyze_listing(
     item: ListingInput,
     persist: bool = Query(True, description="Сохранять результат в журнал PostgreSQL"),
+    authorization: Optional[str] = Header(None),
 ):
     nlp_res = nlp_extract_entities(item.raw_description)
 
@@ -450,13 +602,14 @@ def analyze_listing(
     expert_res = expert_system_evaluate(item, nlp_res)
     expert_res["insufficient_data"] = False
 
-    if persist:
+    uid = current_user_id(authorization)
+    if persist and uid is not None:  # гости могут считать оценку, но в журнал она не пишется
         try:
             conn = psycopg2.connect(DATABASE_URL)
             cur = conn.cursor()
             cur.execute("""
-                INSERT INTO analyzed_listings (title, district, area_sqm, price_usd, score, grade, ai_summary)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO analyzed_listings (title, district, area_sqm, price_usd, score, grade, ai_summary, user_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 item.title,
                 item.district,
@@ -464,7 +617,8 @@ def analyze_listing(
                 item.price_usd,
                 expert_res["score"],
                 expert_res["grade"],
-                expert_res["verdict"]
+                expert_res["verdict"],
+                uid
             ))
             conn.commit()
             cur.close()
@@ -497,7 +651,10 @@ def get_listings(
 
 
 @app.get("/api/history")
-def get_history():
+def get_history(authorization: Optional[str] = Header(None)):
+    uid = current_user_id(authorization)
+    if uid is None:
+        raise HTTPException(status_code=401, detail="not_authenticated")
     try:
         conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
         cur = conn.cursor()
@@ -505,9 +662,10 @@ def get_history():
             SELECT id, title, district, area_sqm, price_usd, score, grade, ai_summary,
                    to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
             FROM analyzed_listings
+            WHERE user_id = %s
             ORDER BY id DESC
             LIMIT 8;
-        """)
+        """, (uid,))
         rows = cur.fetchall()
         cur.close()
         conn.close()
@@ -612,6 +770,15 @@ UI_HTML = r"""<!DOCTYPE html>
             font-size: 13px; font-weight: 500; transition: background-color 0.12s;
         }
         .api-btn:hover { background: var(--btn-bg); }
+        button.api-btn { font-family: inherit; cursor: pointer; }
+        .auth-box { display: flex; align-items: center; gap: 10px; }
+        .auth-email { font-size: 13px; color: var(--text-muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+        .modal[hidden] { display: none; }
+        .modal-card { width: 100%; max-width: 360px; }
+        .link-btn { background: none; border: 0; padding: 0; font: inherit; font-size: 13px; color: var(--text-muted); cursor: pointer; text-decoration: underline; }
+        .link-btn:hover { color: var(--text); }
+        .auth-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
 
         /* ---------- Каркас ---------- */
         .container { max-width: 1280px; margin: 20px auto 0; padding: 0 24px; }
@@ -827,6 +994,7 @@ UI_HTML = r"""<!DOCTYPE html>
         </div>
         <div class="nav-right">
             <div class="lead-tag"><span data-i18n="lead_label"></span> <strong data-i18n="lead_name"></strong></div>
+            <div class="auth-box" id="auth-box"></div>
             <div class="seg" role="group" id="lang-switch" data-i18n-aria="lang_label">
                 <button type="button" data-lang="ru">RU</button>
                 <button type="button" data-lang="en">EN</button>
@@ -944,6 +1112,26 @@ UI_HTML = r"""<!DOCTYPE html>
         </div>
     </div>
 
+    <div class="modal" id="auth-modal" hidden>
+        <div class="card modal-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+            <div class="card-title" id="auth-title"></div>
+            <div class="form-group">
+                <label class="form-label" for="auth-email" data-i18n="auth_email"></label>
+                <input id="auth-email" type="email" autocomplete="email" maxlength="254">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="auth-pass" data-i18n="auth_password"></label>
+                <input id="auth-pass" type="password" autocomplete="current-password" maxlength="128">
+            </div>
+            <button type="button" class="submit-btn" id="auth-submit"></button>
+            <div class="form-error" id="auth-error" role="alert"></div>
+            <div class="auth-actions">
+                <button type="button" class="link-btn" id="auth-switch"></button>
+                <button type="button" class="link-btn" id="auth-close" data-i18n="auth_cancel"></button>
+            </div>
+        </div>
+    </div>
+
     <script>
     /* ================= Словари ================= */
     const I18N = {
@@ -985,11 +1173,24 @@ UI_HTML = r"""<!DOCTYPE html>
             how_4_t: "Класс сделки",
             how_4_d: "Индекс = 70 + 1,5 × отклонение цены (%) + срочность 6 + торг 4 − залог 12. A ≥ 88, B ≥ 74, C ≥ 55, иначе D.",
             history_title: "Последние проверки",
-            history_desc: "Журнал запросов из базы PostgreSQL.",
+            history_desc: "Ваши проверки из базы PostgreSQL.",
             th_id: "ID", th_time: "Время", th_object: "Объект", th_district: "Район",
             th_area: "Площадь", th_price: "Цена", th_class: "Класс", th_verdict: "Вердикт",
             history_empty: "Пока нет проверок",
             history_err: "Не удалось загрузить историю",
+            history_login: "Войдите, чтобы сохранять и видеть свои проверки.",
+            auth_login: "Войти", auth_logout: "Выйти",
+            auth_title_login: "Вход", auth_title_register: "Регистрация",
+            auth_email: "Email", auth_password: "Пароль (не короче 6 символов)",
+            auth_submit_login: "Войти", auth_submit_register: "Создать аккаунт",
+            auth_to_register: "Нет аккаунта? Зарегистрироваться", auth_to_login: "Уже есть аккаунт? Войти",
+            auth_cancel: "Закрыть", auth_busy: "Подождите…",
+            auth_err_email: "Введите корректный email.",
+            auth_err_pass: "Пароль не короче 6 символов.",
+            auth_err_taken: "Этот email уже зарегистрирован.",
+            auth_err_creds: "Неверный email или пароль.",
+            auth_err_rate: "Слишком много попыток. Подождите несколько минут.",
+            auth_err_generic: "Не удалось выполнить запрос. Попробуйте ещё раз.",
             loading: "Загрузка модуля оценки…",
             photo_note: "Фото-иллюстрация",
             grade: "Класс",
@@ -1090,11 +1291,24 @@ UI_HTML = r"""<!DOCTYPE html>
             how_4_t: "Deal grade",
             how_4_d: "Index = 70 + 1.5 × price deviation (%) + urgency 6 + negotiable 4 − lien 12. A ≥ 88, B ≥ 74, C ≥ 55, otherwise D.",
             history_title: "Recent checks",
-            history_desc: "Request log from the PostgreSQL database.",
+            history_desc: "Your checks from the PostgreSQL database.",
             th_id: "ID", th_time: "Time", th_object: "Property", th_district: "District",
             th_area: "Area", th_price: "Price", th_class: "Grade", th_verdict: "Verdict",
             history_empty: "No checks yet",
             history_err: "Could not load history",
+            history_login: "Sign in to save and see your checks.",
+            auth_login: "Sign in", auth_logout: "Sign out",
+            auth_title_login: "Sign in", auth_title_register: "Create account",
+            auth_email: "Email", auth_password: "Password (at least 6 characters)",
+            auth_submit_login: "Sign in", auth_submit_register: "Create account",
+            auth_to_register: "No account? Register", auth_to_login: "Already registered? Sign in",
+            auth_cancel: "Close", auth_busy: "Please wait…",
+            auth_err_email: "Enter a valid email.",
+            auth_err_pass: "Password must be at least 6 characters.",
+            auth_err_taken: "This email is already registered.",
+            auth_err_creds: "Wrong email or password.",
+            auth_err_rate: "Too many attempts. Wait a few minutes.",
+            auth_err_generic: "Request failed. Please try again.",
             loading: "Loading valuation module…",
             photo_note: "Illustrative photo",
             grade: "Grade",
@@ -1216,6 +1430,10 @@ UI_HTML = r"""<!DOCTYPE html>
     let lastResult = null;         // { data, payload, sample }
     let historyRows = null;        // кэш истории для перерисовки при смене языка
     let historyFailed = false;
+    let historyNeedsLogin = false;
+    let TOKEN = store.get('flatai-token') || null;
+    let ME = null;                 // email вошедшего пользователя
+    let authMode = 'login';
     let feedRows = null;           // текущая выдача ленты
     let feedFailed = false;
     const filters = { district: '', budget: '', rooms: '' };
@@ -1254,6 +1472,8 @@ UI_HTML = r"""<!DOCTYPE html>
             b.setAttribute('aria-pressed', String(b.dataset.lang === LANG)));
         renderDistrictOptions();
         renderFilterOptions();
+        renderAuth();
+        renderAuthModal();
     }
 
     function setLang(lang) {
@@ -1344,12 +1564,106 @@ UI_HTML = r"""<!DOCTYPE html>
     }
 
     /* ================= История ================= */
-    async function loadHistory() {
+    /* ================= Аккаунт ================= */
+    function authHeaders() { return TOKEN ? { 'Authorization': 'Bearer ' + TOKEN } : {}; }
+
+    function renderAuth() {
+        const box = $('auth-box');
+        if (!box) return;
+        if (ME) {
+            box.innerHTML = `<span class="auth-email" title="${esc(ME)}">${esc(ME)}</span>` +
+                `<button type="button" class="api-btn" id="logout-btn">${esc(t('auth_logout'))}</button>`;
+            $('logout-btn').addEventListener('click', dropSession);
+        } else {
+            box.innerHTML = `<button type="button" class="api-btn" id="login-btn">${esc(t('auth_login'))}</button>`;
+            $('login-btn').addEventListener('click', () => openAuth('login'));
+        }
+    }
+
+    function renderAuthModal() {
+        const reg = authMode === 'register';
+        $('auth-title').textContent = t(reg ? 'auth_title_register' : 'auth_title_login');
+        $('auth-submit').textContent = t(reg ? 'auth_submit_register' : 'auth_submit_login');
+        $('auth-switch').textContent = t(reg ? 'auth_to_login' : 'auth_to_register');
+        $('auth-pass').setAttribute('autocomplete', reg ? 'new-password' : 'current-password');
+    }
+
+    function openAuth(mode) {
+        authMode = mode;
+        $('auth-error').textContent = '';
+        $('auth-pass').value = '';
+        renderAuthModal();
+        $('auth-modal').hidden = false;
+        $('auth-email').focus();
+    }
+    function closeAuth() { $('auth-modal').hidden = true; }
+
+    function dropSession() {
+        TOKEN = null; ME = null;
+        store.set('flatai-token', '');
+        historyRows = null; historyNeedsLogin = true; historyFailed = false;
+        renderAuth();
+        renderHistory();
+    }
+
+    async function submitAuth() {
+        const email = $('auth-email').value.trim();
+        const password = $('auth-pass').value;
+        const err = $('auth-error');
+        err.textContent = '';
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { err.textContent = t('auth_err_email'); return; }
+        if (password.length < 6) { err.textContent = t('auth_err_pass'); return; }
+        const btn = $('auth-submit');
+        btn.disabled = true; btn.textContent = t('auth_busy');
         try {
-            const res = await fetch('/api/history');
+            const res = await fetch('/api/auth/' + authMode, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const map = { bad_email: 'auth_err_email', email_taken: 'auth_err_taken',
+                              bad_credentials: 'auth_err_creds', too_many_attempts: 'auth_err_rate' };
+                err.textContent = t(map[data.detail] || (res.status === 422 ? 'auth_err_pass' : 'auth_err_generic'));
+                return;
+            }
+            TOKEN = data.token; ME = data.email;
+            store.set('flatai-token', TOKEN);
+            closeAuth();
+            renderAuth();
+            loadHistory();
+        } catch (e) {
+            err.textContent = t('auth_err_generic');
+        } finally {
+            btn.disabled = false;
+            renderAuthModal();
+        }
+    }
+
+    async function initAuth() {
+        if (TOKEN) {
+            try {
+                const res = await fetch('/api/auth/me', { headers: authHeaders() });
+                if (res.ok) ME = (await res.json()).email;
+                else if (res.status === 401) { TOKEN = null; store.set('flatai-token', ''); }
+            } catch (e) { /* сервер недоступен — оставляем токен, войдём позже */ }
+        }
+        renderAuth();
+    }
+
+    async function loadHistory() {
+        if (!TOKEN) {
+            historyRows = null; historyNeedsLogin = true; historyFailed = false;
+            renderHistory();
+            return;
+        }
+        try {
+            const res = await fetch('/api/history', { headers: authHeaders() });
+            if (res.status === 401) { dropSession(); return; }
             const data = await res.json();
             historyRows = data.history || [];
-            historyFailed = false;
+            historyFailed = false; historyNeedsLogin = false;
         } catch (e) {
             historyFailed = true;
         }
@@ -1365,6 +1679,12 @@ UI_HTML = r"""<!DOCTYPE html>
 
     function renderHistory() {
         const tbody = $('history-body');
+        if (historyNeedsLogin) {
+            tbody.innerHTML = `<tr><td colspan="8" style="color:var(--text-muted);">${esc(t('history_login'))} ` +
+                `<button type="button" class="link-btn" id="hist-login">${esc(t('auth_login'))}</button></td></tr>`;
+            $('hist-login').addEventListener('click', () => openAuth('login'));
+            return;
+        }
         if (historyFailed) {
             tbody.innerHTML = `<tr><td colspan="8" style="color:var(--red);">${esc(t('history_err'))}</td></tr>`;
             return;
@@ -1418,7 +1738,7 @@ UI_HTML = r"""<!DOCTYPE html>
         try {
             const res = await fetch('/api/analyze' + (persist ? '' : '?persist=false'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify(payload)
             });
             if (!res.ok) throw new Error("HTTP " + res.status);
@@ -1640,6 +1960,13 @@ UI_HTML = r"""<!DOCTYPE html>
         loadFeed();
     });
     $('submit-btn').addEventListener('click', () => analyzeProperty(true));
+    $('auth-submit').addEventListener('click', submitAuth);
+    $('auth-switch').addEventListener('click', () => { $('auth-error').textContent = ''; authMode = authMode === 'login' ? 'register' : 'login'; renderAuthModal(); });
+    $('auth-close').addEventListener('click', closeAuth);
+    $('auth-modal').addEventListener('click', e => { if (e.target === $('auth-modal')) closeAuth(); });
+    $('auth-pass').addEventListener('keydown', e => { if (e.key === 'Enter') submitAuth(); });
+    $('auth-email').addEventListener('keydown', e => { if (e.key === 'Enter') $('auth-pass').focus(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('auth-modal').hidden) closeAuth(); });
     ['title', 'area', 'price', 'desc', 'district'].forEach(id => {
         const onEdit = () => { if (currentSample) { currentSample = null; markSample(); } };
         $(id).addEventListener('input', onEdit);
@@ -1648,6 +1975,7 @@ UI_HTML = r"""<!DOCTYPE html>
 
     async function init() {
         applyStatic();
+        await initAuth();
         try {
             const res = await fetch('/api/listings');
             const data = await res.json();

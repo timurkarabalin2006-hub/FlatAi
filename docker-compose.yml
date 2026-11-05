@@ -6,6 +6,7 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://flatai:flatai_pass@db:5432/flatai_db
+      - SECRET_KEY=flatai-local-demo-key
     depends_on:
       db:
         condition: service_healthy

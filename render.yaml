@@ -10,6 +10,8 @@ services:
         fromDatabase:
           name: flatai-db
           property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
 
 databases:
   - name: flatai-db
