@@ -1188,19 +1188,6 @@ UI_HTML = r"""<!DOCTYPE html>
             </div>
         </div>
 
-        <section class="how card">
-            <div class="how-head">
-                <div class="card-title" data-i18n="how_title"></div>
-                <div class="card-desc" data-i18n="how_desc"></div>
-            </div>
-            <ol class="how-list">
-                <li><strong data-i18n="how_1_t"></strong><span data-i18n="how_1_d"></span></li>
-                <li><strong data-i18n="how_2_t"></strong><span data-i18n="how_2_d"></span></li>
-                <li><strong data-i18n="how_3_t"></strong><span data-i18n="how_3_d"></span></li>
-                <li><strong data-i18n="how_4_t"></strong><span data-i18n="how_4_d"></span></li>
-            </ol>
-        </section>
-
         <div class="card history-card">
             <div class="card-title" data-i18n="history_title"></div>
             <div class="card-desc" style="margin-bottom: 12px;" data-i18n="history_desc"></div>
