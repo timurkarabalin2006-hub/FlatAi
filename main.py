@@ -196,7 +196,7 @@ def _has_any(text: str, words) -> bool:
 
 
 # =====================================================================
-# Нейросетевой NLP-модуль: дообученная модель rubert-tiny2 (BERT, 29M параметров),
+# Нейросетевой NLP-модуль: дообученная нейросеть-трансформер (см. model/meta.json),
 # экспортирована в ONNX (int8) и работает локально, без интернета.
 # Если модель не загрузилась — используется резервный модуль на правилах.
 # =====================================================================
@@ -240,7 +240,7 @@ _KZ_MAP = str.maketrans({
 def ml_predict(text: str):
     import numpy as np
     sess, tok, meta = _ML
-    enc = tok.encode(text.translate(_KZ_MAP))
+    enc = tok.encode(text.translate(_KZ_MAP) if meta.get("normalize_kz", True) else text)
     ids = np.array([enc.ids], dtype=np.int64)
     feed = {"input_ids": ids, "attention_mask": np.array([enc.attention_mask], dtype=np.int64)}
     names = {i.name for i in sess.get_inputs()}
