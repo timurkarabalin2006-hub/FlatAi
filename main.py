@@ -104,6 +104,21 @@ DEMO_LISTINGS = [
             "desc": "Under mortgage, good condition, furniture stays."}},
 ]
 
+KK_LISTINGS = {
+    1: {"title": "2 бөлмелі, Highvill Park", "desc": "Көшуге байланысты шұғыл сатылады! Жаңа дизайнерлік жөндеу, барлық жиһаз бен тұрмыстық техника қалады. Нақты сатып алушыға саудаласуға болады. Кепілсіз, құжаттар қолда."},
+    2: {"title": "Студия, Nova City", "desc": "Қаралама әрлеудегі пәтер, жөндеу қажет. Қабырғалары тегістелген. Асықпай сатылады, саудасыз."},
+    3: {"title": "3 бөлмелі, орталық", "desc": "Пәтер банкте кепілде, ипотекалық ауыртпалық бар. Қалыпты жағдайы, жиһазсыз."},
+    4: {"title": "Grand Central Flat", "desc": "Жаңа жөндеу, көшуге байланысты шұғыл сатылады. Мәмілеге құжаттар дайын."},
+    5: {"title": "1 бөлмелі, Expo Boulevard", "desc": "Жағдайы жақсы, жиһаздың бір бөлігі қалады. Саудаласуға болады."},
+    6: {"title": "2 бөлмелі, Sezim ТК", "desc": "Қаралама әрлеудегі пәтер, жөндеу қажет. Саудаласуға болады."},
+    7: {"title": "3 бөлмелі, Akbulak ТК", "desc": "Еуроремонт, барлық жиһаз бен техника қалады. Саудасыз. Ауыртпалықсыз."},
+    8: {"title": "4 бөлмелі, Highvill Ishim", "desc": "Дизайнерлік жөндеу, панорамалық терезелер, жиһаз қалады. Баға түпкілікті, саудасыз."},
+    9: {"title": "2 бөлмелі, Grand Park ТК", "desc": "Шұғыл, басқа қалаға көшемін. Қалыпты жағдайы. Саудаласуға болады."},
+    10: {"title": "1 бөлмелі, Сейфуллин к-сі", "desc": "Пәтер ипотекада, жағдайы жақсы, жиһаз қалады."},
+}
+for _x in DEMO_LISTINGS:
+    _x["kk"] = KK_LISTINGS[_x["id"]]
+
 # Текстовый вердикт в API остаётся на русском (интерфейс переводит его по классу)
 VERDICTS = {
     "A": ("Ниже рынка", "Цена заметно ниже расчётной стоимости для этого района и состояния квартиры. Высокая инвестиционная привлекательность."),
@@ -1098,13 +1113,12 @@ UI_HTML = r"""<!DOCTYPE html>
             </div>
         </div>
         <div class="nav-right">
-            <div class="lead-tag"><span data-i18n="lead_label"></span> <strong data-i18n="lead_name"></strong></div>
             <div class="auth-box" id="auth-box"></div>
             <div class="seg" role="group" id="lang-switch" data-i18n-aria="lang_label">
                 <button type="button" data-lang="ru">RU</button>
+                <button type="button" data-lang="kk">KZ</button>
                 <button type="button" data-lang="en">EN</button>
             </div>
-            <a href="/docs" target="_blank" rel="noopener" class="api-btn" data-i18n="api_btn"></a>
         </div>
     </nav>
 
@@ -1474,52 +1488,158 @@ UI_HTML = r"""<!DOCTYPE html>
             sqm: "m²",
             locale: "en-US"
         }
+        ,
+        kk: {
+            doc_title: "FlatAI — жылжымайтын мүлікті бағалау",
+            brand_sub: "Жылжымайтын мүлікті бағалау",
+            lang_label: "Тіл",
+            form_title: "Өз хабарландыруым",
+            form_desc: "Хабарландыру деректері мен мәтінін енгізіңіз.",
+            f_title: "Пәтердің немесе ТК атауы",
+            f_district: "Аудан (Астана қ.)",
+            f_area: "Ауданы, м²",
+            f_price: "Бағасы, $",
+            f_desc: "Хабарландыру мәтіні (NLP үшін)",
+            submit: "Пәтерді бағалау",
+            submitting: "Бағалануда…",
+            err_fields: "Атауын, ауданын және бағасын толтырыңыз (нөлден үлкен сандар).",
+            err_title_long: "Атауы тым ұзын — 200 таңбадан аспауы керек.",
+            err_area_max: "Ауданы 2000 м²-тен аспауы керек.",
+            err_desc_long: n => `Сипаттама тым ұзын: ${n} таңба, ең көбі 5000.`,
+            err_api: "Бағаны алу мүмкін болмады. Деректерді тексеріп, қайталап көріңіз.",
+            engine_model: (name) => `Нейрожелі: ${name}`,
+            engine_rules: "Қосалқы режим (ережелер)",
+            history_title: "Менің тексерулерім",
+            history_desc: "",
+            th_id: "ID", th_time: "Уақыты", th_object: "Объект", th_district: "Аудан",
+            th_area: "Көлемі", th_price: "Бағасы", th_class: "Сынып", th_verdict: "Қорытынды",
+            history_empty: "Әзірге тексеру жоқ",
+            history_err: "Тарихты жүктеу мүмкін болмады",
+            history_login: "Тексерулеріңізді көру үшін кіріңіз.",
+            auth_login: "Кіру", auth_logout: "Шығу",
+            auth_title_login: "Кіру", auth_title_register: "Тіркелу",
+            auth_email: "Email", auth_password: "Құпия сөз (кемінде 6 таңба)",
+            auth_submit_login: "Кіру", auth_submit_register: "Тіркелгі жасау",
+            auth_to_register: "Тіркелгіңіз жоқ па? Тіркелу", auth_to_login: "Тіркелгіңіз бар ма? Кіру",
+            auth_cancel: "Жабу", auth_busy: "Күте тұрыңыз…",
+            auth_err_email: "Дұрыс email енгізіңіз.",
+            auth_err_pass: "Құпия сөз кемінде 6 таңба болуы керек.",
+            auth_err_taken: "Бұл email бұрын тіркелген.",
+            auth_err_creds: "Email немесе құпия сөз қате.",
+            auth_err_rate: "Әрекет тым көп. Бірнеше минут күтіңіз.",
+            auth_err_generic: "Сұранысты орындау мүмкін болмады. Қайталап көріңіз.",
+            loading: "Жүктелуде…",
+            photo_note: "",
+            grade: "Сынып",
+            m_listing: "Бағасы",
+            per_sqm: "м² үшін",
+            m_fair: "Әділ баға",
+            m_district_avg: v => `Аудан: ${v} / м²`,
+            m_dev: "Есептік бағадан айырмасы",
+            dev_below: (p, v) => `Есептік бағадан ${p}% төмен, үнемдеу ~${v}`,
+            dev_above: (p, v) => `Есептік бағадан ${p}% жоғары, артық төлем ~${v}`,
+            dev_equal: "Есептік бағаға тең",
+            range_title: "Баға және әділ аралық",
+            range_marker: "Хабарландыру",
+            range_fork: "Аралық",
+            range_center: "Есептік баға",
+            factors_title: "Нейрожелі нені тапты",
+            factors_none: "Мәтінде бағаға әсер ететін факторлар табылмады.",
+            bd_title: "Сынып неден құралды",
+            bd_base: "Базалық деңгей",
+            bd_price_below: p => `Баға есептіктен ${p}% төмен`,
+            bd_price_above: p => `Баға есептіктен ${p}% жоғары`,
+            bd_urgent: "Шұғыл сату",
+            bd_negotiable: "Саудаласуға болады",
+            bd_lien: "Кепіл / ауыртпалық",
+            bd_total: "Қорытынды индекс",
+            bd_rule: (a, b, c) => `Шектер: A ≥ ${a} · B ≥ ${b} · C ≥ ${c} · D < ${c}`,
+            raw_api: "API деректері (JSON)",
+            tab_feed: "Лента",
+            tab_own: "Өз хабарландыруым",
+            feed_title: "Хабарландырулар лентасы",
+            feed_desc: "Хабарландыруды таңдаңыз — нәтиже оң жақта.",
+            demo_tag: "Демо-деректер",
+            flt_district: "Аудан",
+            flt_all: "Барлық аудандар",
+            flt_budget: "Бюджет, $ дейін",
+            flt_budget_ph: "Шектеусіз",
+            flt_rooms: "Бөлме",
+            flt_any: "Барлығы",
+            flt_reset: "Тазалау",
+            feed_count: n => `Табылған хабарландыру: ${n}`,
+            feed_empty: "Бұл талаптарға сай хабарландыру жоқ. Сүзгіні өзгертіңіз.",
+            feed_err: "Лентаны жүктеу мүмкін болмады",
+            rooms_short: n => `${n} бөлмелі`,
+            analyze: "Талдау",
+            next_title: "Не істеу керек",
+            ns_view: "Көруге тез келісіңіз.",
+            ns_compare: "2–3 ұқсас пәтермен салыстырыңыз.",
+            ns_offer: v => `${v} аспайтын баға ұсыныңыз.`,
+            ns_haggle_from: v => `${v} бағасынан саудаласуды бастаңыз.`,
+            ns_haggle_soft: "Саудаласуға болады — жеңілдік сұраңыз.",
+            ns_urgent: "Сатушы асығып тұр — бағаға қысым жасауға болады.",
+            ns_lien: "Кепілдің жоқтығы туралы анықтама сұраңыз.",
+            ns_rough: "Жөндеуге бюджет қарастырыңыз.",
+            ns_docs: "Сатушының құжаттарын тексеріңіз.",
+            insuf_title: "Бағалауға деректер аз",
+            insuf_desc: "Деректер болмаса, болжамдамау үшін сынып көрсетпейміз.",
+            insuf_no_benchmark: "Бұл аудан үшін бағдарлық баға жоқ.",
+            insuf_short_text: "Сипаттама тым қысқа.",
+            insuf_action: "Басқасын таңдау",
+            sqm: "м²",
+            locale: "kk-KZ"
+        }
     };
 
     const DISTRICTS = {
-        "Esil District": { ru: "Есильский район", en: "Esil District", ru_short: "Есильский", en_short: "Esil" },
-        "Downtown":      { ru: "Центр",            en: "City Center", ru_short: "Центр", en_short: "City Center" },
-        "Almalinsky":    { ru: "Алматинский район", en: "Almaty District", ru_short: "Алматинский", en_short: "Almaty" },
-        "Saryarka":      { ru: "Сарыаркинский район", en: "Saryarka District", ru_short: "Сарыаркинский", en_short: "Saryarka" },
-        "Nura District": { ru: "Район Нура",       en: "Nura District", ru_short: "Нура", en_short: "Nura" },
+        "Esil District": { ru: "Есильский район", en: "Esil District", ru_short: "Есильский", en_short: "Esil", kk: "Есіл ауданы", kk_short: "Есіл" },
+        "Downtown":      { ru: "Центр",            en: "City Center", ru_short: "Центр", en_short: "City Center", kk: "Орталық", kk_short: "Орталық" },
+        "Almalinsky":    { ru: "Алматинский район", en: "Almaty District", ru_short: "Алматинский", en_short: "Almaty", kk: "Алматы ауданы", kk_short: "Алматы" },
+        "Saryarka":      { ru: "Сарыаркинский район", en: "Saryarka District", ru_short: "Сарыаркинский", en_short: "Saryarka", kk: "Сарыарқа ауданы", kk_short: "Сарыарқа" },
+        "Nura District": { ru: "Район Нура",       en: "Nura District", ru_short: "Нура", en_short: "Nura", kk: "Нұра ауданы", kk_short: "Нұра" },
         "Bostandyk":     { ru: "Бостандыкский район", en: "Bostandyk District" }
     };
     const DISTRICT_OPTIONS = ["Esil District", "Downtown", "Almalinsky", "Saryarka", "Nura District"];
 
     const RENOVATION = {
-        designer: { ru: "Свежий дизайнерский ремонт", en: "Fresh designer renovation" },
-        rough:    { ru: "Черновая отделка",          en: "Shell finish, needs renovation" },
-        standard: { ru: "Стандартное состояние",     en: "Standard condition" }
+        designer: { ru: "Свежий дизайнерский ремонт", en: "Fresh designer renovation", kk: "Жаңа дизайнерлік жөндеу" },
+        rough:    { ru: "Черновая отделка",          en: "Shell finish, needs renovation", kk: "Қаралама әрлеу" },
+        standard: { ru: "Стандартное состояние",     en: "Standard condition", kk: "Қалыпты жағдайы" }
     };
 
     const FACTORS = {
-        designer_renovation: { ru: ["Дизайнерский ремонт", "+12% к цене"],          en: ["Designer renovation", "+12% to value"] },
-        rough_finish:        { ru: ["Черновая отделка", "−15% к цене"],             en: ["Shell finish", "−15% to value"] },
-        urgent_sale:         { ru: ["Срочная продажа", "Сильная позиция покупателя"], en: ["Urgent sale", "Buyer leverage"] },
-        fixed_price:         { ru: ["Цена без торга", "Скидки не будет"],           en: ["Fixed price", "No discount expected"] },
-        negotiable:          { ru: ["Возможен торг", "Возможна скидка"],            en: ["Negotiable", "Discount possible"] },
-        furnished:           { ru: ["Мебель и техника", "+5% к цене"],              en: ["Furniture & appliances", "+5% to value"] },
-        lien_risk:           { ru: ["Залог / ипотека в банке", "Юридический риск, −12 к индексу"], en: ["Bank lien / mortgage", "Legal risk, −12 to index"] },
-        no_lien:             { ru: ["Чистая сделка, без залога", "Готово к сделке"], en: ["Clean title, no lien", "Ready to close"] },
-        unfurnished:         { ru: ["Без мебели", "Без надбавки"],                   en: ["Unfurnished", "No markup"] }
+        designer_renovation: { ru: ["Дизайнерский ремонт", "+12% к цене"],          en: ["Designer renovation", "+12% to value"], kk: ["Дизайнерлік жөндеу", "бағаға +12%"] },
+        rough_finish:        { ru: ["Черновая отделка", "−15% к цене"],             en: ["Shell finish", "−15% to value"], kk: ["Қаралама әрлеу", "бағаға −15%"] },
+        urgent_sale:         { ru: ["Срочная продажа", "Сильная позиция покупателя"], en: ["Urgent sale", "Buyer leverage"], kk: ["Шұғыл сату", "Сатып алушыға тиімді"] },
+        fixed_price:         { ru: ["Цена без торга", "Скидки не будет"],           en: ["Fixed price", "No discount expected"], kk: ["Саудасыз баға", "Жеңілдік болмайды"] },
+        negotiable:          { ru: ["Возможен торг", "Возможна скидка"],            en: ["Negotiable", "Discount possible"], kk: ["Саудаласуға болады", "Жеңілдік мүмкін"] },
+        furnished:           { ru: ["Мебель и техника", "+5% к цене"],              en: ["Furniture & appliances", "+5% to value"], kk: ["Жиһаз бен техника", "бағаға +5%"] },
+        lien_risk:           { ru: ["Залог / ипотека в банке", "Юридический риск, −12 к индексу"], en: ["Bank lien / mortgage", "Legal risk, −12 to index"], kk: ["Банк кепілі / ипотека", "Заңды тәуекел, индекске −12"] },
+        no_lien:             { ru: ["Чистая сделка, без залога", "Готово к сделке"], en: ["Clean title, no lien", "Ready to close"], kk: ["Таза мәміле, кепілсіз", "Мәмілеге дайын"] },
+        unfurnished:         { ru: ["Без мебели", "Без надбавки"],                   en: ["Unfurnished", "No markup"], kk: ["Жиһазсыз", "Үстеме жоқ"] }
     };
 
     const VERDICTS = {
         A: { ru: ["Ниже рынка", "Цена заметно ниже расчётной стоимости для этого района и состояния квартиры. Высокая инвестиционная привлекательность."],
-             en: ["Below market", "The asking price is well below the estimated value for this district and condition. Strong investment case."] },
+             en: ["Below market", "The asking price is well below the estimated value for this district and condition. Strong investment case."],
+             kk: ["Нарықтан төмен", "Баға осы аудан мен пәтер жағдайы үшін есептік құннан айтарлықтай төмен."] },
         B: { ru: ["Рыночная цена", "Цена соответствует средним значениям по району и состоянию объекта. Достаточно стандартного торга."],
-             en: ["At market", "The price is in line with the district median for this condition. Standard negotiation applies."] },
+             en: ["At market", "The price is in line with the district median for this condition. Standard negotiation applies."],
+             kk: ["Нарықтық баға", "Баға аудан бойынша орташа мәндерге сәйкес келеді."] },
         C: { ru: ["Выше рынка", "Цена выше, чем у похожих квартир в районе. Стоит попросить скидку 8–12%."],
-             en: ["Above market", "Priced above comparable apartments in the district. Consider asking for an 8–12% discount."] },
+             en: ["Above market", "Priced above comparable apartments in the district. Consider asking for an 8–12% discount."],
+             kk: ["Нарықтан жоғары", "Баға ұқсас пәтерлерден жоғары. 8–12% жеңілдік сұрап көріңіз."] },
         D: { ru: ["Завышена или есть риски", "Обнаружено заметное завышение цены или риск обременения. Перед сделкой проверьте юридические документы."],
-             en: ["Overpriced or risky", "Significant overpricing or an encumbrance risk was detected. Verify the legal documents before proceeding."] }
+             en: ["Overpriced or risky", "Significant overpricing or an encumbrance risk was detected. Verify the legal documents before proceeding."],
+             kk: ["Бағасы көтерілген немесе тәуекел бар", "Баға айтарлықтай көтерілген немесе кепіл тәуекелі бар. Мәміле алдында құжаттарды тексеріңіз."] }
     };
 
     // Объявления из /api/listings (id → данные). Пресеты — это объявления 1–3 из ленты.
     const PRESETS = {};
     function indexListings(list) {
         list.forEach(x => {
-            PRESETS[x.id] = { district: x.district, area: x.area_sqm, price: x.price_usd, rooms: x.rooms, img: x.img, ru: x.ru, en: x.en };
+            PRESETS[x.id] = { district: x.district, area: x.area_sqm, price: x.price_usd, rooms: x.rooms, img: x.img, ru: x.ru, en: x.en, kk: x.kk };
         });
     }
 
@@ -1528,7 +1648,7 @@ UI_HTML = r"""<!DOCTYPE html>
         get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
         set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
     };
-    let LANG = store.get('flatai-lang') === 'en' ? 'en' : 'ru';
+    let LANG = ['en', 'kk'].includes(store.get('flatai-lang')) ? store.get('flatai-lang') : 'ru';
     let currentSample = null;      // пресет в форме (null — пользователь редактировал)
     let lastResult = null;         // { data, payload, sample }
     let historyRows = null;        // кэш истории для перерисовки при смене языка
@@ -2024,7 +2144,7 @@ UI_HTML = r"""<!DOCTYPE html>
 
             <div class="section-label">${esc(t('factors_title'))}</div>
             <div class="factors-list">${factors}</div>
-            <div class="engine-note">${esc(nlp.engine === 'model' ? t('engine_model', nlp.model_name || 'kaz-roberta') : t('engine_rules'))}</div>
+            <div class="engine-note">${esc(nlp.engine === 'model' ? t('engine_model', 'kaz-roberta · RU / KZ / EN') : t('engine_rules'))}</div>
 
             <div class="two-col">
                 <div>${nextSteps(val, nlp, payload)}</div>
