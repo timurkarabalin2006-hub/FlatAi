@@ -1163,7 +1163,7 @@ UI_HTML = r"""<!DOCTYPE html>
             how_title: "Как считается оценка",
             how_desc: "Четыре шага от текста объявления до вердикта.",
             how_1_t: "Нейросеть читает описание",
-            how_1_d: "Дообученная модель rubert-tiny2 (BERT) находит ремонт, срочность, торг, мебель и залог — по смыслу, а не по словам, с учётом отрицаний. Работает локально: русский, английский и казахский.",
+            how_1_d: "Дообученная нейросеть (RoBERTa, предобучена на казахском языке) находит ремонт, срочность, торг, мебель и залог — по смыслу, а не по словам, с учётом отрицаний. Работает локально: русский, английский и казахский.",
             engine_model: (name) => `Модель: ${name} · уверенность по каждому фактору`,
             engine_rules: "Резервный режим: правила (модель не загружена)",
             how_2_t: "Бенчмарк района",
@@ -1281,7 +1281,7 @@ UI_HTML = r"""<!DOCTYPE html>
             how_title: "How the valuation works",
             how_desc: "Four steps from listing text to verdict.",
             how_1_t: "A neural network reads the description",
-            how_1_d: "A fine-tuned rubert-tiny2 (BERT) model detects renovation, urgency, negotiability, furniture and liens by meaning, not keywords, including negations. Runs locally: Russian, English and Kazakh.",
+            how_1_d: "A fine-tuned neural network (RoBERTa, pretrained on Kazakh) detects renovation, urgency, negotiability, furniture and liens by meaning, not keywords, including negations. Runs locally: Russian, English and Kazakh.",
             engine_model: (name) => `Model: ${name} · confidence per factor`,
             engine_rules: "Fallback mode: rules (model not loaded)",
             how_2_t: "District benchmark",
@@ -1920,7 +1920,7 @@ UI_HTML = r"""<!DOCTYPE html>
 
             <div class="section-label">${esc(t('factors_title'))}</div>
             <div class="factors-list">${factors}</div>
-            <div class="engine-note">${esc(nlp.engine === 'model' ? t('engine_model', nlp.model_name || 'rubert-tiny2') : t('engine_rules'))}</div>
+            <div class="engine-note">${esc(nlp.engine === 'model' ? t('engine_model', nlp.model_name || 'kaz-roberta') : t('engine_rules'))}</div>
 
             ${nextSteps(val, nlp, payload)}
 
