@@ -981,6 +981,111 @@ UI_HTML = r"""<!DOCTYPE html>
             .container { padding: 0 16px; }
             .lead-tag { border-right: 0; padding-right: 0; width: 100%; }
         }
+
+        /* ================= Редизайн: чёткая структура ================= */
+        :root { --r: 10px; --r-sm: 8px; --surface: #161618; --surface-2: #1b1b1e; }
+        body { font-size: 14px; }
+        .navbar { padding: 12px 28px; }
+        .container { max-width: 1280px; margin: 24px auto 0; padding: 0 28px; }
+        .card { border-radius: var(--r); padding: 24px; }
+        input, select, textarea, .seg, .api-btn, .submit-btn, .ghost-btn, .reset-btn, .chip-btn { border-radius: var(--r-sm); }
+        input, select { height: 38px; }
+        .form-label { font-size: 12px; margin-bottom: 6px; }
+        .logo-mark { border-radius: 8px; }
+
+        /* Каркас: слева панель выбора, справа результат */
+        .grid { grid-template-columns: 420px minmax(0, 1fr); gap: 20px; align-items: start; }
+        .side { position: sticky; top: 16px; min-width: 0; }
+        .side-card { padding: 0; overflow: hidden; }
+        @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } .side { position: static; } }
+
+        /* Вкладки */
+        .tabs { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--border); }
+        .tab {
+            background: transparent; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+            color: var(--text-muted); font-family: inherit; font-size: 14px; font-weight: 500;
+            padding: 14px 12px; cursor: pointer; transition: color 0.12s, background-color 0.12s;
+        }
+        .tab:hover { color: var(--text); background: var(--surface-2); }
+        .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--text); }
+        .tab-panel { padding: 20px 24px 24px; }
+        .tab-panel[hidden] { display: none; }
+        .panel-note { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+        .demo-tag { flex-shrink: 0; margin-top: 1px; }
+
+        /* Фильтры — компактно */
+        .filters { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0; padding: 0; border: 0; align-items: end; }
+        .filters .f-district { grid-column: 1 / -1; }
+        .filters .seg { height: 38px; width: 100%; }
+        .filters .seg button { flex: 1; padding: 0; }
+        .feed-bar { display: flex; justify-content: space-between; align-items: center; margin: 14px 0 8px; }
+        .feed-count { margin: 0; }
+
+        /* Список объявлений */
+        .feed-grid { display: grid; grid-template-columns: 1fr; gap: 8px; max-height: min(560px, calc(100vh - 340px)); min-height: 240px; overflow-y: auto; padding-right: 4px; margin-right: -4px; }
+        .feed-grid::-webkit-scrollbar { width: 6px; }
+        .feed-grid::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+        .listing {
+            flex-direction: row; justify-content: space-between; align-items: center; gap: 12px;
+            padding: 12px 14px; border-radius: var(--r-sm); cursor: pointer; background: var(--surface-2);
+        }
+        .listing:hover { border-color: var(--border-strong); background: #202024; }
+        .listing.active { border-color: var(--active-border); background: #212125; }
+        .listing-main { min-width: 0; }
+        .listing-title { font-weight: 500; font-size: 14px; line-height: 1.3; }
+        .listing-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .listing-side { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; }
+        .listing-price-main { font-size: 15px; font-weight: 500; }
+        .listing-price-sqm { font-size: 11px; color: var(--text-subtle); margin-top: 2px; }
+        @media (max-width: 980px) { .feed-grid { max-height: 420px; } }
+
+        .submit-btn { padding: 10px 16px; background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; margin-top: 4px; }
+        .submit-btn:hover { background: #e4e4e7; border-color: #e4e4e7; }
+
+        /* Результат */
+        .result-card { padding: 28px; min-height: 480px; }
+        .property-header { gap: 20px; padding-bottom: 22px; margin-bottom: 22px; }
+        .property-header.with-img { grid-template-columns: 200px minmax(0, 1fr); }
+        .prop-img { height: 140px; border-radius: var(--r-sm); }
+        .prop-name { font-size: 20px; }
+        .verdict-line { font-size: 15px; margin: 4px 0 10px; }
+        .grade-pill { border-radius: 6px; font-size: 13px; padding: 4px 12px; }
+        .metrics-row { margin-bottom: 24px; border-radius: var(--r-sm); background: var(--surface-2); }
+        .metric-box { padding: 16px 18px; }
+        .metric-val { font-size: 22px; }
+        .range-wrap { margin-bottom: 26px; }
+        .section-label { font-size: 12px; text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--text); border-bottom: 0; padding-bottom: 0; margin-bottom: 12px; }
+        .factors-list { margin-bottom: 8px; gap: 8px; }
+        .factor-badge { border-radius: 6px; padding: 5px 5px 5px 11px; background: var(--surface-2); }
+        .engine-note { margin: 0 0 28px; }
+        .two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+        @media (max-width: 1180px) { .two-col { grid-template-columns: 1fr; gap: 4px; } }
+        .steps-list { border-radius: var(--r-sm); margin-bottom: 8px; }
+        .steps-list li { padding: 10px 14px 10px 30px; }
+        .bd-table td { padding: 8px 0; }
+        details { border-radius: var(--r-sm); margin-top: 24px; }
+
+        /* Как считается оценка — компактная полоса из 4 шагов */
+        .how { margin-top: 20px; }
+        .how-head { margin-bottom: 18px; }
+        .how-head .card-desc { margin-bottom: 0; }
+        .how-list { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+        @media (max-width: 1100px) { .how-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 620px) { .how-list { grid-template-columns: 1fr; } }
+        .how-list li { padding-left: 0; padding-top: 34px; }
+        .how-list li::before { width: 24px; height: 24px; border-radius: 6px; top: 0; font-size: 12px; }
+
+        .history-card { margin-top: 20px; }
+        .table-scroll { border-radius: var(--r-sm); }
+
+        @media (max-width: 600px) {
+            .container { padding: 0 14px; margin-top: 16px; }
+            .navbar { padding: 10px 14px; }
+            .tab-panel { padding: 16px; }
+            .result-card, .card { padding: 18px; }
+            .side-card { padding: 0; }
+            .property-header.with-img { grid-template-columns: 1fr; }
+        }
 </style>
 </head>
 <body>
@@ -1004,90 +1109,97 @@ UI_HTML = r"""<!DOCTYPE html>
     </nav>
 
     <div class="container">
-        <div class="card feed-card" id="feed">
-            <div class="feed-head">
-                <div>
-                    <div class="card-title" data-i18n="feed_title"></div>
-                    <div class="card-desc" style="margin-bottom:0;" data-i18n="feed_desc"></div>
-                </div>
-                <span class="demo-tag" data-i18n="demo_tag"></span>
-            </div>
-            <div class="filters">
-                <div>
-                    <label class="form-label" for="f-district" data-i18n="flt_district"></label>
-                    <select id="f-district"></select>
-                </div>
-                <div>
-                    <label class="form-label" for="f-budget" data-i18n="flt_budget"></label>
-                    <input id="f-budget" type="number" min="1" step="1000" data-i18n-ph="flt_budget_ph">
-                </div>
-                <div>
-                    <span class="form-label" data-i18n="flt_rooms"></span>
-                    <div class="seg" role="group" id="f-rooms">
-                        <button type="button" data-rooms="" data-i18n="flt_any"></button>
-                        <button type="button" data-rooms="1">1</button>
-                        <button type="button" data-rooms="2">2</button>
-                        <button type="button" data-rooms="3">3</button>
-                        <button type="button" data-rooms="4">4+</button>
-                    </div>
-                </div>
-                <button type="button" class="reset-btn" id="f-reset" data-i18n="flt_reset"></button>
-            </div>
-            <div class="feed-count" id="feed-count"></div>
-            <div class="feed-grid" id="feed-grid"></div>
-        </div>
-
         <div class="grid">
-            <div class="left-col">
-                <div class="card">
-                    <div class="card-title" data-i18n="form_title"></div>
-                    <div class="card-desc" data-i18n="form_desc"></div>
-
-                    <div class="form-group">
-                        <label class="form-label" for="title" data-i18n="f_title"></label>
-                        <input id="title" autocomplete="off">
+            <aside class="side" id="feed">
+                <div class="card side-card">
+                    <div class="tabs" role="tablist">
+                        <button type="button" class="tab" id="tab-feed" role="tab" data-tab="feed" aria-selected="true" data-i18n="tab_feed"></button>
+                        <button type="button" class="tab" id="tab-own" role="tab" data-tab="own" aria-selected="false" data-i18n="tab_own"></button>
                     </div>
 
-                    <div class="form-row form-group">
-                        <div>
-                            <label class="form-label" for="district" data-i18n="f_district"></label>
-                            <select id="district"></select>
+                    <div class="tab-panel" id="panel-feed" role="tabpanel">
+                        <div class="panel-note">
+                            <span data-i18n="feed_desc"></span>
+                            <span class="demo-tag" data-i18n="demo_tag"></span>
                         </div>
-                        <div>
-                            <label class="form-label" for="area" data-i18n="f_area"></label>
-                            <input id="area" type="number" min="1" step="0.1">
+                        <div class="filters">
+                            <div class="f-district">
+                                <label class="form-label" for="f-district" data-i18n="flt_district"></label>
+                                <select id="f-district"></select>
+                            </div>
+                            <div class="f-budget">
+                                <label class="form-label" for="f-budget" data-i18n="flt_budget"></label>
+                                <input id="f-budget" type="number" min="1" step="1000" data-i18n-ph="flt_budget_ph">
+                            </div>
+                            <div class="f-rooms">
+                                <span class="form-label" data-i18n="flt_rooms"></span>
+                                <div class="seg" role="group" id="f-rooms">
+                                    <button type="button" data-rooms="" data-i18n="flt_any"></button>
+                                    <button type="button" data-rooms="1">1</button>
+                                    <button type="button" data-rooms="2">2</button>
+                                    <button type="button" data-rooms="3">3</button>
+                                    <button type="button" data-rooms="4">4+</button>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <label class="form-label" for="price" data-i18n="f_price"></label>
-                            <input id="price" type="number" min="1" step="100">
+                        <div class="feed-bar">
+                            <span class="feed-count" id="feed-count"></span>
+                            <button type="button" class="link-btn" id="f-reset" data-i18n="flt_reset"></button>
                         </div>
+                        <div class="feed-grid" id="feed-grid"></div>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label" for="desc" data-i18n="f_desc"></label>
-                        <textarea id="desc" rows="5"></textarea>
-                    </div>
+                    <div class="tab-panel" id="panel-own" role="tabpanel" hidden>
+                        <div class="panel-note" data-i18n="form_desc"></div>
 
-                    <button type="button" class="submit-btn" id="submit-btn" data-i18n="submit"></button>
-                    <div class="form-error" id="form-error" role="alert"></div>
+                        <div class="form-group">
+                            <label class="form-label" for="title" data-i18n="f_title"></label>
+                            <input id="title" autocomplete="off">
+                        </div>
+
+                        <div class="form-row form-group">
+                            <div>
+                                <label class="form-label" for="district" data-i18n="f_district"></label>
+                                <select id="district"></select>
+                            </div>
+                            <div>
+                                <label class="form-label" for="area" data-i18n="f_area"></label>
+                                <input id="area" type="number" min="1" step="0.1">
+                            </div>
+                            <div>
+                                <label class="form-label" for="price" data-i18n="f_price"></label>
+                                <input id="price" type="number" min="1" step="100">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="desc" data-i18n="f_desc"></label>
+                            <textarea id="desc" rows="6"></textarea>
+                        </div>
+
+                        <button type="button" class="submit-btn" id="submit-btn" data-i18n="submit"></button>
+                        <div class="form-error" id="form-error" role="alert"></div>
+                    </div>
                 </div>
+            </aside>
 
-                <div class="card">
-                    <div class="card-title" data-i18n="how_title"></div>
-                    <div class="card-desc" style="margin-bottom:16px;" data-i18n="how_desc"></div>
-                    <ol class="how-list">
-                        <li><strong data-i18n="how_1_t"></strong><span data-i18n="how_1_d"></span></li>
-                        <li><strong data-i18n="how_2_t"></strong><span data-i18n="how_2_d"></span></li>
-                        <li><strong data-i18n="how_3_t"></strong><span data-i18n="how_3_d"></span></li>
-                        <li><strong data-i18n="how_4_t"></strong><span data-i18n="how_4_d"></span></li>
-                    </ol>
-                </div>
-            </div>
-
-            <div class="card" id="result-card" aria-live="polite">
+            <div class="card result-card" id="result-card" aria-live="polite">
                 <div class="empty-state" data-i18n="loading"></div>
             </div>
         </div>
+
+        <section class="how card">
+            <div class="how-head">
+                <div class="card-title" data-i18n="how_title"></div>
+                <div class="card-desc" data-i18n="how_desc"></div>
+            </div>
+            <ol class="how-list">
+                <li><strong data-i18n="how_1_t"></strong><span data-i18n="how_1_d"></span></li>
+                <li><strong data-i18n="how_2_t"></strong><span data-i18n="how_2_d"></span></li>
+                <li><strong data-i18n="how_3_t"></strong><span data-i18n="how_3_d"></span></li>
+                <li><strong data-i18n="how_4_t"></strong><span data-i18n="how_4_d"></span></li>
+            </ol>
+        </section>
 
         <div class="card history-card">
             <div class="card-title" data-i18n="history_title"></div>
@@ -1220,8 +1332,10 @@ UI_HTML = r"""<!DOCTYPE html>
             raw_api: "Сырой ответ API (JSON)",
             disclaimer: "Оценка построена на медианных данных по районам и не является инвестиционной рекомендацией.",
             benchmark_note: "Медианы районов — стартовые экспертные значения; в рабочей версии они рассчитываются по собранным объявлениям.",
+            tab_feed: "Лента объявлений",
+            tab_own: "Своё объявление",
             feed_title: "Лента объявлений",
-            feed_desc: "Выберите объявление и нажмите «Анализ» — или вставьте своё ниже.",
+            feed_desc: "Выберите объявление — оценка появится справа.",
             demo_tag: "Демо-данные",
             flt_district: "Район",
             flt_all: "Все районы",
@@ -1338,8 +1452,10 @@ UI_HTML = r"""<!DOCTYPE html>
             raw_api: "Raw API response (JSON)",
             disclaimer: "The valuation is based on district median data and is not investment advice.",
             benchmark_note: "District medians are initial expert values; in production they are computed from collected listings.",
+            tab_feed: "Listings feed",
+            tab_own: "Your own listing",
             feed_title: "Listings feed",
-            feed_desc: "Pick a listing and click “Analyze” — or paste your own below.",
+            feed_desc: "Pick a listing — the valuation appears on the right.",
             demo_tag: "Demo data",
             flt_district: "District",
             flt_all: "All districts",
@@ -1545,21 +1661,24 @@ UI_HTML = r"""<!DOCTYPE html>
         count.textContent = t('feed_count', feedRows.length);
         if (!feedRows.length) { grid.innerHTML = `<div class="feed-empty">${esc(t('feed_empty'))}</div>`; return; }
         grid.innerHTML = feedRows.map(x => `
-            <div class="listing ${x.id === currentSample ? 'active' : ''}" data-id="${esc(x.id)}">
-                <div class="listing-title">${esc(x[LANG].title)}</div>
-                <div class="listing-meta">${esc(DISTRICTS[x.district] ? DISTRICTS[x.district][LANG + '_short'] : x.district)} · ${esc(t('rooms_short', x.rooms))} · ${esc(fmt(x.area_sqm))} ${esc(t('sqm'))}</div>
-                <div class="listing-price">
-                    <span class="mono">${esc(usd(x.price_usd))}</span>
-                    <span class="mono">${esc(usd(x.price_usd / x.area_sqm))} / ${esc(t('sqm'))}</span>
+            <div class="listing ${x.id === currentSample ? 'active' : ''}" data-id="${esc(x.id)}" tabindex="0" role="button">
+                <div class="listing-main">
+                    <div class="listing-title">${esc(x[LANG].title)}</div>
+                    <div class="listing-meta">${esc(DISTRICTS[x.district] ? DISTRICTS[x.district][LANG + '_short'] : x.district)} · ${esc(t('rooms_short', x.rooms))} · ${esc(fmt(x.area_sqm))} ${esc(t('sqm'))}</div>
                 </div>
-                <button type="button" class="analyze-btn" data-analyze="${esc(x.id)}">${esc(t('analyze'))}</button>
+                <div class="listing-side">
+                    <span class="mono listing-price-main">${esc(usd(x.price_usd))}</span>
+                    <span class="mono listing-price-sqm">${esc(usd(x.price_usd / x.area_sqm))} / ${esc(t('sqm'))}</span>
+                </div>
             </div>`).join('');
     }
 
     function analyzeListing(id) {
         fillSample(id);
         analyzeProperty(true).then(() => {
-            $('result-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (window.matchMedia('(max-width: 980px)').matches) {
+                $('result-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         });
     }
 
@@ -1832,7 +1951,7 @@ UI_HTML = r"""<!DOCTYPE html>
                 <summary>${esc(t('raw_api'))}</summary>
                 <pre class="mono">${esc(JSON.stringify(data, null, 2))}</pre>
             </details>`;
-        $('insuf-back').addEventListener('click', () => $('feed').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        $('insuf-back').addEventListener('click', () => { showTab('own'); $('feed').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
     }
 
     function renderResult() {
@@ -1922,9 +2041,10 @@ UI_HTML = r"""<!DOCTYPE html>
             <div class="factors-list">${factors}</div>
             <div class="engine-note">${esc(nlp.engine === 'model' ? t('engine_model', nlp.model_name || 'kaz-roberta') : t('engine_rules'))}</div>
 
-            ${nextSteps(val, nlp, payload)}
-
-            ${breakdownTable(val)}
+            <div class="two-col">
+                <div>${nextSteps(val, nlp, payload)}</div>
+                <div>${breakdownTable(val)}</div>
+            </div>
 
             <details>
                 <summary>${esc(t('raw_api'))}</summary>
@@ -1938,9 +2058,21 @@ UI_HTML = r"""<!DOCTYPE html>
     document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
     document.querySelectorAll('[data-sample]').forEach(b => b.addEventListener('click', () => analyzeListing(Number(b.dataset.sample))));
     $('feed-grid').addEventListener('click', e => {
-        const btn = e.target.closest('[data-analyze]');
-        if (btn) analyzeListing(Number(btn.dataset.analyze));
+        const row = e.target.closest('.listing');
+        if (row) analyzeListing(Number(row.dataset.id));
     });
+    $('feed-grid').addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const row = e.target.closest('.listing');
+        if (row) { e.preventDefault(); analyzeListing(Number(row.dataset.id)); }
+    });
+    function showTab(name) {
+        ['feed', 'own'].forEach(k => {
+            $('panel-' + k).hidden = (k !== name);
+            $('tab-' + k).setAttribute('aria-selected', String(k === name));
+        });
+    }
+    document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
     $('f-district').addEventListener('change', e => { filters.district = e.target.value; loadFeed(); });
     let budgetTimer = null;
     $('f-budget').addEventListener('input', e => {
