@@ -37,6 +37,7 @@ RANGE_PCT = 0.07
 ADJ_DESIGNER = 0.12
 ADJ_ROUGH = -0.15
 ADJ_FURNISHED = 0.05
+ADJ_DEFECTS = -0.05
 
 # Индекс сделки: прозрачная сумма слагаемых, без искусственного потолка
 SCORE_BASE = 70
@@ -271,7 +272,7 @@ def ml_extract_entities(text: str):
     p = ml_predict(text)
     meta = _ML[2]
     e = {"renovation": "Стандартное состояние", "renovation_key": "standard", "urgency": False,
-         "negotiable": False, "lien_risk": False, "furnished": False, "factors": [],
+         "negotiable": False, "lien_risk": False, "furnished": False, "defects": False, "factors": [],
          "engine": "model", "model_name": meta.get("name"),
          "probabilities": {k: round(v, 4) for k, v in p.items()}}
 
@@ -306,6 +307,9 @@ def ml_extract_entities(text: str):
         add("furnished", "Мебель и техника", "+5% к цене", "positive", p[fu])
     elif fu == "unfurnished":
         add("unfurnished", "Без мебели", "Без надбавки", "neutral", p[fu])
+    if p.get("defects", 0) >= ML_THRESHOLD:
+        e["defects"] = True
+        add("defects", "Недостатки", "−5% к цене", "negative", p["defects"])
     li = pick("lien", "no_lien")
     if li == "lien":
         e["lien_risk"] = True
@@ -337,6 +341,7 @@ def rules_extract_entities(text: str):
         "negotiable": False,
         "lien_risk": False,
         "furnished": False,
+        "defects": False,
         "factors": []
     }
 
@@ -381,6 +386,15 @@ def rules_extract_entities(text: str):
         entities["furnished"] = True
         add("furnished", "Мебель и техника", "+5% к цене", "positive")
 
+    # --- Недостатки (запасной словарь, если модель недоступна) ---
+    neg_defect = re.search(r"((нет|без|не\s+было|жоқ|no|without)\s+(?:\w+\s+){0,2}?|(недостатк|таракан|клоп|сырост|плесен|кемшілік|тарақан)\w*\s+(?:нет|жоқ|не\s+было))(недостатк|таракан|клоп|сырост|плесен|шум|кемшілік|тарақан)?", t)
+    if not neg_defect and _has_any(t, ["недостат", "минус", "таракан", "клоп", "плесен", "сырост", "сыро", "протека",
+                                       "трещин", "шумн", "аварийн", "ветх", "запах", "кемшілік", "тарақан", "қандала",
+                                       "көгер", "ылғал", "шулы", "cockroach", "bed bug", "mold", "damp", "leak",
+                                       "noisy", "cracks", "drawback", "downside"]):
+        entities["defects"] = True
+        add("defects", "Недостатки", "−5% к цене", "negative")
+
     # --- Залог / обременения ---
     has_no_lien = _has_any(t, ["без залог", "не в залог", "обременений нет", "без обременен",
                                "чистая продажа", "no lien", "no encumbrance", "free of encumbrance",
@@ -405,6 +419,8 @@ def expert_system_evaluate(data: ListingInput, nlp_features: dict):
         fair_sqm *= 1 + ADJ_ROUGH
     if nlp_features["furnished"]:
         fair_sqm *= 1 + ADJ_FURNISHED
+    if nlp_features.get("defects"):
+        fair_sqm *= 1 + ADJ_DEFECTS
 
     fair_total_price = round(fair_sqm * data.area_sqm, 0)
     fair_low = round(fair_total_price * (1 - RANGE_PCT), 0)
@@ -1358,6 +1374,7 @@ UI_HTML = r"""<!DOCTYPE html>
             ns_haggle_soft: "Торг возможен — можно просить скидку.",
             ns_urgent: "Продавец спешит — можно давить на цену.",
             ns_lien: "Запросить справку об отсутствии залога.",
+            ns_defects: "Осмотреть квартиру лично и торговаться из-за недостатков.",
             ns_rough: "Заложить бюджет на ремонт.",
             ns_docs: "Проверить документы продавца.",
             insuf_title: "Мало данных для оценки",
@@ -1478,6 +1495,7 @@ UI_HTML = r"""<!DOCTYPE html>
             ns_haggle_soft: "Bargaining is possible — ask for a discount.",
             ns_urgent: "The seller is in a hurry — push on price.",
             ns_lien: "Request a certificate of no liens.",
+            ns_defects: "Inspect in person and negotiate over the defects.",
             ns_rough: "Budget for renovation.",
             ns_docs: "Check the seller’s documents.",
             insuf_title: "Not enough data to valuate",
@@ -1580,6 +1598,7 @@ UI_HTML = r"""<!DOCTYPE html>
             ns_haggle_soft: "Саудаласуға болады — жеңілдік сұраңыз.",
             ns_urgent: "Сатушы асығып тұр — бағаға қысым жасауға болады.",
             ns_lien: "Кепілдің жоқтығы туралы анықтама сұраңыз.",
+            ns_defects: "Пәтерді жеке көріп, кемшіліктерге байланысты саудаласыңыз.",
             ns_rough: "Жөндеуге бюджет қарастырыңыз.",
             ns_docs: "Сатушының құжаттарын тексеріңіз.",
             insuf_title: "Бағалауға деректер аз",
@@ -1617,6 +1636,7 @@ UI_HTML = r"""<!DOCTYPE html>
         furnished:           { ru: ["Мебель и техника", "+5% к цене"],              en: ["Furniture & appliances", "+5% to value"], kk: ["Жиһаз бен техника", "бағаға +5%"] },
         lien_risk:           { ru: ["Залог / ипотека в банке", "Юридический риск, −12 к индексу"], en: ["Bank lien / mortgage", "Legal risk, −12 to index"], kk: ["Банк кепілі / ипотека", "Заңды тәуекел, индекске −12"] },
         no_lien:             { ru: ["Чистая сделка, без залога", "Готово к сделке"], en: ["Clean title, no lien", "Ready to close"], kk: ["Таза мәміле, кепілсіз", "Мәмілеге дайын"] },
+        defects:             { ru: ["Недостатки", "−5% к цене"], en: ["Defects", "−5% to value"], kk: ["Кемшіліктер", "бағаға −5%"] },
         unfurnished:         { ru: ["Без мебели", "Без надбавки"],                   en: ["Unfurnished", "No markup"], kk: ["Жиһазсыз", "Үстеме жоқ"] }
     };
 
@@ -2033,6 +2053,7 @@ UI_HTML = r"""<!DOCTYPE html>
         }
         if (has('urgent_sale') && val.diff_percent >= 0) steps.push(t('ns_urgent'));
         if (has('rough_finish')) steps.push(t('ns_rough'));
+        if (has('defects')) steps.push(t('ns_defects'));
         if (has('lien_risk')) steps.push(t('ns_lien'));
         if (steps.length < 3) steps.push(t('ns_docs'));
         return `
